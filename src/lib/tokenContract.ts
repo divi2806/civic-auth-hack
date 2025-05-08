@@ -37,20 +37,6 @@ const isValidSolanaAddress = (address: string): boolean => {
   }
 };
 
-// Ensure the wallet provider is properly typed
-declare global {
-  interface Window {
-    solana?: any; // Using 'any' to match the type from @particle-network/auth
-  }
-}
-
-// Type for Solana wallet when we use it
-type SolanaWallet = {
-  connect: () => Promise<{ publicKey: PublicKey }>;
-  signTransaction: (transaction: Transaction) => Promise<Transaction>;
-  isConnected: boolean;
-};
-
 export const TokenService = {
   // Get the token balance for a user
   async getTokenBalance(userAddress: string): Promise<number> {
@@ -67,17 +53,6 @@ export const TokenService = {
       if (!isValidSolanaAddress(cleanAddress)) {
         console.error('Invalid Solana address format:', cleanAddress);
         return 0;
-      }
-      
-      // Ensure wallet is connected if possible
-      if (window.solana && !window.solana.isConnected) {
-        try {
-          console.log('Attempting to connect wallet before fetching balance');
-          await window.solana.connect();
-        } catch (err) {
-          console.warn('Failed to connect wallet automatically:', err);
-          // Continue anyway - we can still attempt to get balance without connected wallet
-        }
       }
       
       const connection = getConnection();
@@ -154,27 +129,15 @@ export const TokenService = {
     }
   },
   
-  // Create a token account for a user
-  async createTokenAccount(userAddress: string): Promise<string> {
+  // Create a token account for a user using Civic wallet
+  async createTokenAccount(userAddress: string, civicWallet: any): Promise<string> {
     try {
-      if (!window.solana) {
-        throw new Error('No Solana wallet found. Please install Phantom or another Solana wallet extension.');
-      }
-      
       // Clean the address
       const cleanAddress = userAddress.trim();
       
       // Check if the address is a valid Solana address
       if (!isValidSolanaAddress(cleanAddress)) {
         throw new Error(`Invalid Solana address format: ${cleanAddress}`);
-      }
-      
-      // Ensure the wallet is connected
-      try {
-        await window.solana.connect();
-      } catch (err) {
-        console.log('Connection request was rejected or failed:', err);
-        throw new Error('Please connect your Solana wallet first');
       }
       
       const connection = getConnection();
@@ -212,8 +175,8 @@ export const TokenService = {
       
       console.log('Transaction created, requesting signature...');
       
-      // Request signature from the wallet
-      const signedTransaction = await window.solana.signTransaction(transaction);
+      // Request signature from the Civic wallet
+      const signedTransaction = await civicWallet.signTransaction(transaction);
       
       console.log('Transaction signed, sending to network...');
       
@@ -234,27 +197,15 @@ export const TokenService = {
     }
   },
   
-  // Transfer tokens for contest entry
-  async enterContest(userAddress: string, amount: number): Promise<string> {
+  // Transfer tokens for contest entry using Civic wallet
+  async enterContest(userAddress: string, amount: number, civicWallet: any): Promise<string> {
     try {
-      if (!window.solana) {
-        throw new Error('No Solana wallet found. Please install Phantom or another Solana wallet extension.');
-      }
-      
       // Clean the address
       const cleanAddress = userAddress.trim();
       
       // Check if the address is a valid Solana address
       if (!isValidSolanaAddress(cleanAddress)) {
         throw new Error(`Invalid Solana address format: ${cleanAddress}`);
-      }
-      
-      // Ensure the wallet is connected
-      try {
-        await window.solana.connect();
-      } catch (err) {
-        console.log('Connection request was rejected or failed:', err);
-        throw new Error('Please connect your Solana wallet first');
       }
       
       const connection = getConnection();
@@ -277,7 +228,7 @@ export const TokenService = {
       const senderAccountExists = await this.checkTokenAccountExists(cleanAddress);
       if (!senderAccountExists) {
         console.log('Sender token account does not exist, creating it...');
-        await this.createTokenAccount(cleanAddress);
+        await this.createTokenAccount(cleanAddress, civicWallet);
       }
       
       // Check if receiver token account exists
@@ -327,8 +278,8 @@ export const TokenService = {
       
       console.log('Transaction created, requesting signature...');
       
-      // Request signature from the wallet
-      const signedTransaction = await window.solana.signTransaction(transaction);
+      // Request signature from the Civic wallet
+      const signedTransaction = await civicWallet.signTransaction(transaction);
       
       console.log('Transaction signed, sending to network...');
       
