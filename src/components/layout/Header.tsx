@@ -48,6 +48,7 @@ const Header = ({ mobileMenuOpen, setMobileMenuOpen }: HeaderProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const civicUser = useUser();
+  const [isConnecting, setIsConnecting] = useState(false);
   const { 
     isConnected, 
     address, 
@@ -59,6 +60,26 @@ const Header = ({ mobileMenuOpen, setMobileMenuOpen }: HeaderProps) => {
     createEmbeddedWallet,
     walletCreationInProgress
   } = useWeb3();
+
+  // Handle wallet connection with loading state
+  const handleConnectWallet = async () => {
+    setIsConnecting(true);
+    try {
+      await connectWallet();
+    } catch (error) {
+      console.error("Connection error:", error);
+      toast.error("Failed to connect wallet");
+    } finally {
+      // We'll reset this in useEffect when user state changes
+    }
+  };
+
+  // Reset connecting state when user state changes
+  useEffect(() => {
+    if (civicUser.user || civicUser.error) {
+      setIsConnecting(false);
+    }
+  }, [civicUser.user, civicUser.error]);
 
   const copyAddressToClipboard = () => {
     if (userHasWallet(civicUser)) {
@@ -75,10 +96,20 @@ const Header = ({ mobileMenuOpen, setMobileMenuOpen }: HeaderProps) => {
         <Button 
           className="gap-1 purple-gradient" 
           size="sm" 
-          onClick={connectWallet}
+          onClick={handleConnectWallet}
+          disabled={isConnecting}
         >
-          <Wallet className="h-4 w-4" />
-          <span className="hidden md:inline">Connect Wallet</span>
+          {isConnecting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="hidden md:inline">Connecting...</span>
+            </>
+          ) : (
+            <>
+              <Wallet className="h-4 w-4" />
+              <span className="hidden md:inline">Connect Wallet</span>
+            </>
+          )}
         </Button>
       );
     }
