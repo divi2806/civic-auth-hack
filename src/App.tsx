@@ -1,3 +1,4 @@
+// In your App.tsx file
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -48,7 +49,10 @@ const App = () => (
         <ConnectionProvider endpoint={SOLANA_ENDPOINT}>
           <WalletProvider wallets={[]} autoConnect>
             <WalletModalProvider>
-              <CivicAuthProvider clientId={CIVIC_CLIENT_ID}>
+              <CivicAuthProvider 
+                clientId={CIVIC_CLIENT_ID}
+                displayMode="redirect" // Change from default iframe mode to redirect mode
+              >
                 <Web3Provider>
                   <TaskProvider>
                     <Routes>
