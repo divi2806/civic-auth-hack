@@ -23,7 +23,7 @@ Also meet our cute little zappy.
 
 ---
 
-## 🛡️ Civic Authentication Integration
+## How is Civic Authentication Integration done?
 
 TaskFi uses [**Civic Auth**](https://www.auth.civic.com/dashboard) to deliver **secure, bot-free authentication**, preserve user privacy, and keep authentication integrated within web2 and web3 platforms and seamlessly onboard players to Solana with embedded wallets, by giving embedded wallets. It solves the need of downloading third party wallet and getting relied on them.
 
@@ -43,7 +43,6 @@ TaskFi uses [**Civic Auth**](https://www.auth.civic.com/dashboard) to deliver **
 
 > Civic ensures that the players in the system are fair and square and system is not being misused.
 
-![Prototype](https://www.loom.com/share/ca0c86d8aedb4c998424ffecde26b2f4?sid=b07f0d4e-cdcc-46a2-b115-dac2203e47a1)
 
 ## Getting Started (For Developers)
 
