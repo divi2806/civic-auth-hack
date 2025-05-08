@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useUser } from "@civic/auth-web3/react";
+import { userHasWallet } from "@civic/auth-web3";
 
 // Constants - Solana Admin Receiver Address
 const RECEIVER_ADDRESS = 'EhFTWzaEXM9baSFSMM22cJiG8KjmsMLiFWi27DVc2Zq6';
@@ -35,8 +37,9 @@ const PurchaseAgentDialog: React.FC<PurchaseAgentDialogProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPurchased, setIsPurchased] = useState(false);
   const [txHash, setTxHash] = useState(null);
-  const { user, refreshUser, fetchTokenBalance, tokenBalance,address } = useWeb3();
+  const { user, refreshUser, fetchTokenBalance, tokenBalance, address } = useWeb3();
   const [currentBalance, setCurrentBalance] = useState(0);
+  const civicUser = useUser();
 
   useEffect(() => {
     // Update local balance from context whenever tokenBalance changes
@@ -55,12 +58,33 @@ const PurchaseAgentDialog: React.FC<PurchaseAgentDialogProps> = ({
   }, [open, user?.address, fetchTokenBalance]);
 
   const handlePurchase = async () => {
-    if (!user || !user.address) return;
+    if (!user || !user.address) {
+      toast.error("User not logged in", {
+        description: "Please log in to make purchases.",
+      });
+      return;
+    }
+    
+    if (!userHasWallet(civicUser)) {
+      toast.error("Wallet not found", {
+        description: "Please create a wallet first to make purchases.",
+      });
+      return;
+    }
+    
+    if (!civicUser.solana.wallet) {
+      toast.error("Wallet not accessible", {
+        description: "Cannot access your wallet. Please try refreshing the page.",
+      });
+      return;
+    }
     
     setIsSubmitting(true);
+    
     try {
       // Check if user has enough tokens
-      const balanceNum = parseFloat(tokenBalance);
+      const balanceNum = parseFloat(tokenBalance || "0");
+      
       if (balanceNum < agent.price) {
         toast.error("Insufficient funds", {
           description: "You don't have enough $TASK tokens to purchase this agent.",
@@ -69,34 +93,60 @@ const PurchaseAgentDialog: React.FC<PurchaseAgentDialogProps> = ({
         return;
       }
       
-      // Use the exact address from the user object without modifying case
+      // Use the exact address from the user object
       const userAddress = address;
+      console.log("Sending transaction for address:", userAddress);
       
-      // Execute token transfer
-      console.log("Sending address:", userAddress); 
-      const txHashLocal = await TokenService.enterContest(userAddress, agent.price);
-      
-      // Save transaction hash
-      setTxHash(txHashLocal);
-      
-      // Save purchase to database
-      await purchaseAgent(agent.id, user.id);
-      
-      // Add user to agent's purchasedBy list (in local state)
-      agent.purchasedBy = [...(agent.purchasedBy || []), userAddress];
-      
-      toast.success("Purchase successful!", {
-        description: `You've successfully purchased ${agent.name}.`,
+      // Execute token transfer with the Civic wallet
+      toast.info("Awaiting wallet approval", {
+        description: "You'll be redirected to approve the transaction. Please complete the process there.",
+        duration: 10000,
       });
       
-      setIsPurchased(true);
-      
-      // Refresh user data to update token balance
-      await refreshUser();
-      
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
+      try {
+        // Use the signIn method with redirect mode first to ensure proper authentication mode
+        await civicUser.signIn("redirect");
+        
+        // Then proceed with the transaction
+        const txHashLocal = await TokenService.enterContest(
+          userAddress, 
+          agent.price, 
+          civicUser.solana.wallet
+        );
+        
+        // Save transaction hash
+        setTxHash(txHashLocal);
+        
+        toast.success("Transaction approved!", {
+          description: "Transaction has been approved and is being processed.",
+          duration: 5000,
+        });
+        
+        // Save purchase to database
+        await purchaseAgent(agent.id, user.id);
+        
+        // Add user to agent's purchasedBy list (in local state)
+        agent.purchasedBy = [...(agent.purchasedBy || []), userAddress];
+        
+        toast.success("Purchase successful!", {
+          description: `You've successfully purchased ${agent.name}.`,
+        });
+        
+        setIsPurchased(true);
+        
+        // Refresh user data to update token balance
+        await refreshUser();
+        
+        // Call onSuccess callback if provided
+        if (onSuccess) {
+          onSuccess();
+        }
+      } catch (walletError) {
+        console.error("Wallet interaction error:", walletError);
+        toast.error("Wallet interaction failed", {
+          description: walletError.message || "Failed to sign the transaction. Please try again.",
+        });
+        throw walletError; // Re-throw to be caught by the outer catch
       }
     } catch (error) {
       console.error("Error purchasing agent:", error);
@@ -226,12 +276,17 @@ const PurchaseAgentDialog: React.FC<PurchaseAgentDialogProps> = ({
               <Button
                 onClick={handlePurchase}
                 className="purple-gradient"
-                disabled={isSubmitting || currentBalance < agent.price}
+                disabled={isSubmitting || currentBalance < agent.price || !userHasWallet(civicUser)}
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processing...
+                  </>
+                ) : !userHasWallet(civicUser) ? (
+                  <>
+                    <Coins className="mr-2 h-4 w-4" />
+                    Wallet Required
                   </>
                 ) : currentBalance < agent.price ? (
                   <>
